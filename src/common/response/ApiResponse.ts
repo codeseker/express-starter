@@ -1,7 +1,7 @@
-export class ApiResponse {
+export class ApiResponse<TData = unknown> {
   status: number;
   message: string;
-  data?: any;
+  data?: TData;
   success: boolean;
 
   constructor({
@@ -12,7 +12,7 @@ export class ApiResponse {
   }: {
     status: number;
     message: string;
-    data?: any;
+    data?: TData;
     success?: boolean;
   }) {
     this.status = status;
