@@ -1,6 +1,7 @@
 import { model, Schema, Types } from "mongoose";
 
 export type IRole = {
+  _id?: Types.ObjectId;
   name: string;
   description?: string;
   isSystem: boolean;

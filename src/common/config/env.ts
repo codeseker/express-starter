@@ -3,7 +3,9 @@ import { z } from "zod";
 
 const envSchema = z.object({
   ACCESS_TOKEN_SECRET: z.string().min(1, "ACCESS_TOKEN_SECRET is required"),
+  ACCESS_TOKEN_EXPIRY_TIME: z.string().default("15m"),
   REFRESH_TOKEN_SECRET: z.string().min(1, "REFRESH_TOKEN_SECRET is required"),
+  REFRESH_TOKEN_EXPIRY_TIME: z.string().default("7d"),
 
   APP_MODE: z.enum(["dev", "prod", "test"], {
     message: "APP_MODE is required and must be one of: dev, prod, test",
