@@ -1,6 +1,6 @@
 import { model, Schema, Types } from "mongoose";
 
-type IRoleWithPermission = {
+export type IRoleWithPermission = {
   roleId: Types.ObjectId;
   permissionId: Types.ObjectId;
 };

@@ -1,20 +1,10 @@
 import { IRole, Role } from "@/modules/auth/models/Role.model";
 import { HydratedDocument } from "mongoose";
+import { ALL_ROLES } from "../types/roles.types";
 
 export class RoleSeeder {
   private getRolesData(): IRole[] {
-    return [
-      {
-        name: "Admin",
-        description: "Admin role",
-        isSystem: true,
-      },
-      {
-        name: "User",
-        description: "User role",
-        isSystem: true,
-      },
-    ];
+    return ALL_ROLES;
   }
 
   async seed(): Promise<HydratedDocument<IRole>[]> {

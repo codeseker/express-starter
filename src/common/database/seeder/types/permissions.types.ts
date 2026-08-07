@@ -1,6 +1,16 @@
 import { IPermission } from "@/modules/auth/models/Permission.model";
 
+// USER => user role => PERMISSIONS?
+
 export const PERMISSIONS = {
+  ALL: {
+    ALL: {
+      key: "all",
+      module: "All",
+      action: "All",
+      description: "All permissions",
+    },
+  },
   USER: {
     CREATE: {
       key: "user:create",
