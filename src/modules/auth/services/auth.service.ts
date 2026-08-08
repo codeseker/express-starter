@@ -5,6 +5,7 @@ import { RoleRepository } from "../repository/role.repository";
 import { ErrorResponse } from "@/common/response/ErrorResponse";
 import { JwtService } from "@/common/utils/auth/jwt";
 import { BcryptService } from "@/common/utils/auth/bcrypt";
+import { LoginUserDto } from "../dtos/request/LoginUser.dto";
 
 export class AuthService {
   private userRepository: UserRepository;
@@ -49,7 +50,49 @@ export class AuthService {
 
     const user = await this.userRepository.create(payload);
 
-    const tokens = await JwtService.generateTokenPair({ id: String(user._id) });
+    const tokens = JwtService.generateTokenPair({ id: user._id });
+
+    await this.userRepository.updateById(user._id, {
+      refreshToken: tokens.refreshToken,
+    });
+
+    return {
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: ROLES.USER.name,
+      },
+      tokens,
+    };
+  }
+
+  async login(userDto: LoginUserDto) {
+    const user = await this.userRepository.findOne({
+      email: userDto.email,
+    });
+
+    if (!user) {
+      throw new ErrorResponse({
+        status: 404,
+        message: "User with this email not found.",
+      });
+    }
+
+    const isMatch = await BcryptService.compare(
+      userDto.password,
+      user.password!,
+    );
+
+    if (!isMatch) {
+      throw new ErrorResponse({
+        status: 401,
+        message: "Invalid email or password",
+      });
+    }
+
+    const tokens = JwtService.generateTokenPair({ id: user._id });
 
     await this.userRepository.updateById(user._id, {
       refreshToken: tokens.refreshToken,

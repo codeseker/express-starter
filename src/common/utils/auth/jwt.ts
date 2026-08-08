@@ -6,15 +6,14 @@ import jwt, {
   TokenExpiredError,
   JsonWebTokenError,
 } from "jsonwebtoken";
+import { Types } from "mongoose";
 
 /**
  * Payload stored inside JWT.
  * Extend this if you need more fields.
  */
 export interface JwtTokenPayload extends JwtPayload {
-  id: string;
-  role?: string;
-  email?: string;
+  id: Types.ObjectId;
 }
 
 /**
