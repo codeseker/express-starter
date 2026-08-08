@@ -35,6 +35,11 @@ export abstract class BaseRepository<T> {
     return (await this.model.findByIdAndDelete(id).exec()) as T | null;
   }
 
+  async deleteMany(filter: QueryFilter<T>): Promise<number> {
+    const result = await this.model.deleteMany(filter).exec();
+    return result.deletedCount;
+  }
+
   async exists(filter: QueryFilter<T>): Promise<boolean> {
     const doc = await this.model.exists(filter);
     return doc !== null;

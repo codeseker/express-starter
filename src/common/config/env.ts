@@ -28,6 +28,16 @@ const envSchema = z.object({
     (val) => (val === undefined || val === "" ? undefined : Number(val)),
     z.number().default(8000),
   ),
+
+  // ── Mailer (SMTP) ──────────────────────────────────────────────────────────
+  SMTP_HOST: z.string().min(1, "SMTP_HOST is required"),
+  SMTP_PORT: z.preprocess(
+    (val) => (val === undefined || val === "" ? undefined : Number(val)),
+    z.number().default(587),
+  ),
+  SMTP_USER: z.string().min(1, "SMTP_USER is required"),
+  SMTP_PASS: z.string().min(1, "SMTP_PASS is required"),
+  SMTP_FROM: z.string().min(1, "SMTP_FROM is required"),
 });
 
 export type APP_MODE_TYPE = z.infer<typeof envSchema>["APP_MODE"];

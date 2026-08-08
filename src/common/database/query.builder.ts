@@ -1,4 +1,5 @@
-import type { Model, QueryFilter, Types } from "mongoose";
+import { Model, QueryFilter, Types } from "mongoose";
+import { ErrorResponse } from "../response/ErrorResponse";
 
 export interface PaginationMeta {
   page: number;
@@ -18,17 +19,31 @@ type PopulateKeys<T> = {
   [K in keyof T]: T[K] extends Types.ObjectId | Types.ObjectId[] ? K : never;
 }[keyof T];
 
+/**
+ * Override the type of a populated field.
+ * @example Populated<UserDocument, "roleId", IRole>
+ * => UserDocument with roleId typed as IRole instead of Types.ObjectId
+ */
+export type Populated<T, K extends keyof T, R> = Omit<T, K> & Record<K, R>;
+
 export class QueryBuilder<T> {
   private queryFilter: QueryFilter<T> = {};
   private populateOptions: Array<{ path: string; select?: string }> = [];
   private selectFields?: string | Record<string, number>;
   private sortOptions?: string | Record<string, 1 | -1>;
   private paginationParams?: { page: number; limit: number };
+  private id?: string | Types.ObjectId;
 
   constructor(private readonly model: Model<T>) {}
 
   filter(filter: QueryFilter<T>): this {
     this.queryFilter = { ...this.queryFilter, ...filter };
+    return this;
+  }
+
+  byId(id: string | Types.ObjectId): this {
+    this.id = id;
+
     return this;
   }
 
@@ -57,6 +72,26 @@ export class QueryBuilder<T> {
       limit: Math.max(1, limit),
     };
     return this;
+  }
+
+  async executeOne<TResult = T>(): Promise<TResult | null> {
+    const query = this.id
+      ? this.model.findById(this.id)
+      : this.model.findOne(this.queryFilter);
+
+    if (this.selectFields) {
+      query.select(this.selectFields);
+    }
+
+    if (this.sortOptions) {
+      query.sort(this.sortOptions as any);
+    }
+
+    for (const populate of this.populateOptions) {
+      query.populate(populate);
+    }
+
+    return (await query.exec()) as unknown as TResult;
   }
 
   async execute(): Promise<PaginatedResult<T> | T[]> {

@@ -9,6 +9,7 @@ interface IUser {
   password?: string;
   refreshToken: string;
   roleId: Types.ObjectId;
+  isVerified: boolean;
 }
 
 const userBuilder = new SchemaBuilder<IUser>({
@@ -16,8 +17,9 @@ const userBuilder = new SchemaBuilder<IUser>({
   lastName: { type: String, required: true },
   email: { type: String, required: true },
   password: { type: String },
+  refreshToken: { type: String, required: false, default: null },
+  isVerified: { type: Boolean, default: false },
   roleId: { type: Types.ObjectId, ref: "Role", required: true },
-  refreshToken: { type: String, required: false },
 })
   .withSoftDelete()
   .withTimestamps();

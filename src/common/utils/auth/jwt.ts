@@ -104,6 +104,18 @@ export class JwtService {
   }
 
   /**
+   * Check whether refresh token is expired.
+   */
+  static isExpiredRefreshToken(token: string): boolean {
+    try {
+      jwt.verify(token, env.REFRESH_TOKEN_SECRET);
+      return false;
+    } catch (error) {
+      return error instanceof TokenExpiredError;
+    }
+  }
+
+  /**
    * Validate token safely.
    */
   static validateAccessToken(token: string): {

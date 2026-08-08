@@ -2,19 +2,53 @@ import { ROLES } from "@/common/database/seeder/types/roles.types";
 import { RegisterUserDto } from "../dtos/request/RegisterUser.dto";
 import { UserRepository } from "../repository/auth.repository";
 import { RoleRepository } from "../repository/role.repository";
+import { OtpRepository } from "../repository/otp.repository";
 import { ErrorResponse } from "@/common/response/ErrorResponse";
 import { JwtService } from "@/common/utils/auth/jwt";
 import { BcryptService } from "@/common/utils/auth/bcrypt";
 import { LoginUserDto } from "../dtos/request/LoginUser.dto";
+import { Populated } from "@/common/database/query.builder";
+import { IRole } from "../models/Role.model";
+import { UserDocument } from "../models/User.model";
+import { Types } from "mongoose";
+import { MailerService } from "@/mailer/mailer.service";
+import { buildVerificationEmail } from "@/mailer/templates/verification.template";
+
+/** 6-digit numeric OTP validity window. */
+const OTP_TTL_MINUTES = 10;
 
 export class AuthService {
   private userRepository: UserRepository;
   private roleRepository: RoleRepository;
+  private otpRepository: OtpRepository;
 
   constructor() {
     this.userRepository = new UserRepository();
     this.roleRepository = new RoleRepository();
+    this.otpRepository = new OtpRepository();
   }
+
+  // ─── Private helpers ───────────────────────────────────────────────────────
+
+  /** Generate a cryptographically uniform 6-digit numeric string. */
+  private generateOtp(): string {
+    return Math.floor(100_000 + Math.random() * 900_000).toString();
+  }
+
+  /**
+   * Build the populated user shape.
+   * Used by login and refresh so we don't repeat the query.
+   */
+  private async getPopulatedUser(userId: string | Types.ObjectId) {
+    return this.userRepository
+      .query()
+      .byId(userId)
+      .populate("roleId", "name")
+      .select({ password: 0, refreshToken: 0 })
+      .executeOne<Populated<UserDocument, "roleId", IRole>>();
+  }
+
+  // ─── Public service methods ─────────────────────────────────────────────────
 
   async register(userDto: RegisterUserDto) {
     const role = await this.roleRepository.findOne({
@@ -38,6 +72,7 @@ export class AuthService {
         message: "User with this email already exists.",
       });
     }
+
     const hashedPassword = await BcryptService.hash(userDto.password);
 
     const payload = {
@@ -56,12 +91,18 @@ export class AuthService {
       refreshToken: tokens.refreshToken,
     });
 
+    // Fire-and-forget — OTP email failure must not block registration
+    this.sendVerificationOtp(user._id, userDto.firstName, userDto.email).catch(
+      (err) => console.error("[AuthService] Failed to send OTP email:", err),
+    );
+
     return {
       user: {
         id: user._id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        isVerified: user.isVerified,
         role: ROLES.USER.name,
       },
       tokens,
@@ -98,15 +139,162 @@ export class AuthService {
       refreshToken: tokens.refreshToken,
     });
 
+    const populatedUser = await this.getPopulatedUser(user._id);
+
     return {
       user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: ROLES.USER.name,
+        id: populatedUser!._id,
+        email: populatedUser!.email,
+        firstName: populatedUser!.firstName,
+        lastName: populatedUser!.lastName,
+        isVerified: populatedUser!.isVerified,
+        role: populatedUser!.roleId.name,
       },
       tokens,
     };
+  }
+
+  async refresh(userId: Types.ObjectId, refreshToken: string) {
+    const user = await this.userRepository.findById(userId);
+
+    if (!user) {
+      throw new ErrorResponse({
+        status: 404,
+        message: "User not found.",
+      });
+    }
+
+    // Strict equality — guards against null (post-logout) and type coercion
+    if (user.refreshToken !== refreshToken) {
+      throw new ErrorResponse({
+        status: 401,
+        message: "Invalid refresh token.",
+      });
+    }
+
+    // Cryptographically verify the token (catches expiry AND tampering)
+    try {
+      JwtService.verifyRefreshToken(refreshToken);
+    } catch {
+      throw new ErrorResponse({
+        status: 401,
+        message: "Invalid refresh token.",
+      });
+    }
+
+    const accessToken = JwtService.generateAccessToken({ id: user._id });
+
+    const populatedUser = await this.getPopulatedUser(user._id);
+
+    return {
+      user: {
+        id: populatedUser!._id,
+        email: populatedUser!.email,
+        firstName: populatedUser!.firstName,
+        lastName: populatedUser!.lastName,
+        isVerified: populatedUser!.isVerified,
+        role: populatedUser!.roleId.name,
+      },
+      tokens: {
+        accessToken,
+        refreshToken: user.refreshToken, // still valid — not rotated
+      },
+    };
+  }
+
+  async logout(userId: string) {
+    await this.userRepository.updateById(userId, {
+      refreshToken: null,
+    });
+  }
+
+  // ─── Email verification ─────────────────────────────────────────────────────
+
+  /**
+   * Generate a fresh OTP, persist it, and email it to the user.
+   * Any previously unused OTPs for this user are deleted first.
+   */
+  async sendVerificationOtp(
+    userId: Types.ObjectId,
+    firstName: string,
+    email: string,
+  ): Promise<void> {
+    // Purge all existing OTPs for this user to invalidate old codes
+    await this.otpRepository.deleteMany({ userId });
+
+    const code = this.generateOtp();
+    const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1_000);
+
+    await this.otpRepository.create({ userId, code, expiresAt, used: false });
+
+    await MailerService.sendMail({
+      to: email,
+      subject: "Your verification code",
+      html: buildVerificationEmail(firstName, code),
+    });
+  }
+
+  /**
+   * Validate the OTP and mark the user as verified.
+   */
+  async verifyEmail(userId: Types.ObjectId, code: string): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+
+    if (!user) {
+      throw new ErrorResponse({ status: 404, message: "User not found." });
+    }
+
+    if (user.isVerified) {
+      throw new ErrorResponse({
+        status: 409,
+        message: "Email is already verified.",
+      });
+    }
+
+    const otp = await this.otpRepository.findOne({
+      userId,
+      code,
+      used: false,
+    });
+
+    if (!otp) {
+      throw new ErrorResponse({
+        status: 400,
+        message: "Invalid verification code.",
+      });
+    }
+
+    if (new Date() > otp.expiresAt) {
+      throw new ErrorResponse({
+        status: 400,
+        message: "Verification code has expired. Please request a new one.",
+      });
+    }
+
+    // Mark OTP consumed and verify the user in parallel
+    await Promise.all([
+      this.otpRepository.updateById(otp._id as Types.ObjectId, { used: true }),
+      this.userRepository.updateById(userId, { isVerified: true }),
+    ]);
+  }
+
+  /**
+   * Resend the verification OTP to the authenticated user's email.
+   */
+  async resendVerificationOtp(userId: Types.ObjectId): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+
+    if (!user) {
+      throw new ErrorResponse({ status: 404, message: "User not found." });
+    }
+
+    if (user.isVerified) {
+      throw new ErrorResponse({
+        status: 409,
+        message: "Email is already verified.",
+      });
+    }
+
+    await this.sendVerificationOtp(userId, user.firstName, user.email);
   }
 }
