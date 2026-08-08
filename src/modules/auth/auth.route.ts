@@ -7,4 +7,7 @@ const authController = new AuthController();
 
 router.route("/register").post(authController.register);
 
-export default router;
+export default {
+  path: "/auth",
+  router,
+};

@@ -27,7 +27,7 @@ export abstract class BaseRepository<T> {
     payload: UpdateQuery<T>,
   ): Promise<T | null> {
     return (await this.model
-      .findByIdAndUpdate(id, payload, { new: true })
+      .findByIdAndUpdate(id, payload, { returnDocument: "after" })
       .exec()) as T | null;
   }
 
