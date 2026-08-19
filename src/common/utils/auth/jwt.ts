@@ -1,69 +1,39 @@
 import { env } from "@/common/config/env";
 import jwt, {
-  JwtPayload,
-  Secret,
   SignOptions,
   TokenExpiredError,
   JsonWebTokenError,
 } from "jsonwebtoken";
-import { Types } from "mongoose";
+import { TokenPair, TokenPayload, TokenService } from "./TokenService";
 
-/**
- * Payload stored inside JWT.
- * Extend this if you need more fields.
- */
-export interface JwtTokenPayload extends JwtPayload {
-  id: Types.ObjectId;
-}
-
-/**
- * Token pair returned after login/refresh.
- */
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-}
-
-export class JwtService {
+export class JwtService extends TokenService {
   /**
    * Generate a JWT.
    */
-  private static generateToken(
-    payload: JwtTokenPayload,
-    secret: Secret,
-    expiresIn: SignOptions["expiresIn"],
-  ): string {
-    return jwt.sign(payload, secret, {
-      expiresIn,
+  private generateToken(payload: any): string {
+    return jwt.sign(payload, env.ACCESS_TOKEN_SECRET, {
+      expiresIn: env.ACCESS_TOKEN_EXPIRY_TIME as SignOptions["expiresIn"],
     });
   }
 
   /**
    * Generate Access Token
    */
-  static generateAccessToken(payload: JwtTokenPayload): string {
-    return this.generateToken(
-      payload,
-      env.ACCESS_TOKEN_SECRET,
-      env.ACCESS_TOKEN_EXPIRY_TIME as SignOptions["expiresIn"],
-    );
+  generateAccessToken(payload: TokenPayload): string {
+    return this.generateToken(payload);
   }
 
   /**
    * Generate Refresh Token
    */
-  static generateRefreshToken(payload: JwtTokenPayload): string {
-    return this.generateToken(
-      payload,
-      env.REFRESH_TOKEN_SECRET,
-      env.REFRESH_TOKEN_EXPIRY_TIME as SignOptions["expiresIn"],
-    );
+  generateRefreshToken(payload: TokenPayload): string {
+    return this.generateToken(payload);
   }
 
   /**
    * Generate both tokens.
    */
-  static generateTokenPair(payload: JwtTokenPayload): TokenPair {
+  generateTokenPair(payload: TokenPayload): TokenPair {
     return {
       accessToken: this.generateAccessToken(payload),
       refreshToken: this.generateRefreshToken(payload),
@@ -73,28 +43,28 @@ export class JwtService {
   /**
    * Verify Access Token.
    */
-  static verifyAccessToken(token: string): JwtTokenPayload {
-    return jwt.verify(token, env.ACCESS_TOKEN_SECRET) as JwtTokenPayload;
+  verifyAccessToken(token: string): TokenPayload {
+    return jwt.verify(token, env.ACCESS_TOKEN_SECRET) as TokenPayload;
   }
 
   /**
    * Verify Refresh Token.
    */
-  static verifyRefreshToken(token: string): JwtTokenPayload {
-    return jwt.verify(token, env.REFRESH_TOKEN_SECRET) as JwtTokenPayload;
+  verifyRefreshToken(token: string): TokenPayload {
+    return jwt.verify(token, env.REFRESH_TOKEN_SECRET) as TokenPayload;
   }
 
   /**
    * Decode token without verification.
    */
-  static decode(token: string): JwtTokenPayload | null {
-    return jwt.decode(token) as JwtTokenPayload | null;
+  decode(token: string): TokenPayload | null {
+    return jwt.decode(token) as TokenPayload | null;
   }
 
   /**
    * Check whether token is expired.
    */
-  static isExpired(token: string): boolean {
+  isExpired(token: string): boolean {
     try {
       jwt.verify(token, env.ACCESS_TOKEN_SECRET);
       return false;
@@ -106,7 +76,7 @@ export class JwtService {
   /**
    * Check whether refresh token is expired.
    */
-  static isExpiredRefreshToken(token: string): boolean {
+  isExpiredRefreshToken(token: string): boolean {
     try {
       jwt.verify(token, env.REFRESH_TOKEN_SECRET);
       return false;
@@ -118,9 +88,9 @@ export class JwtService {
   /**
    * Validate token safely.
    */
-  static validateAccessToken(token: string): {
+  validateAccessToken(token: string): {
     valid: boolean;
-    payload?: JwtTokenPayload;
+    payload?: TokenPayload;
     error?: string;
   } {
     try {

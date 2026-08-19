@@ -4,7 +4,6 @@ import { UserRepository } from "../repository/auth.repository";
 import { RoleRepository } from "../repository/role.repository";
 import { OtpRepository } from "../repository/otp.repository";
 import { ErrorResponse } from "@/common/response/ErrorResponse";
-import { JwtService } from "@/common/utils/auth/jwt";
 import { BcryptService } from "@/common/utils/auth/bcrypt";
 import { LoginUserDto } from "../dtos/request/LoginUser.dto";
 import { Populated } from "@/common/database/query.builder";
@@ -13,6 +12,7 @@ import { UserDocument } from "../models/User.model";
 import { Types } from "mongoose";
 import { MailerService } from "@/mailer/mailer.service";
 import { buildVerificationEmail } from "@/mailer/templates/verification.template";
+import { TokenService } from "@/common/utils/auth/TokenService";
 
 /** 6-digit numeric OTP validity window. */
 const OTP_TTL_MINUTES = 10;
@@ -21,14 +21,14 @@ export class AuthService {
   private userRepository: UserRepository;
   private roleRepository: RoleRepository;
   private otpRepository: OtpRepository;
+  private tokenService: TokenService;
 
-  constructor() {
+  constructor(tokenService: TokenService) {
     this.userRepository = new UserRepository();
     this.roleRepository = new RoleRepository();
     this.otpRepository = new OtpRepository();
+    this.tokenService = tokenService;
   }
-
-  // ─── Private helpers ───────────────────────────────────────────────────────
 
   /** Generate a cryptographically uniform 6-digit numeric string. */
   private generateOtp(): string {
@@ -85,7 +85,7 @@ export class AuthService {
 
     const user = await this.userRepository.create(payload);
 
-    const tokens = JwtService.generateTokenPair({ id: user._id });
+    const tokens = this.tokenService.generateTokenPair({ id: user._id });
 
     await this.userRepository.updateById(user._id, {
       refreshToken: tokens.refreshToken,
@@ -133,7 +133,7 @@ export class AuthService {
       });
     }
 
-    const tokens = JwtService.generateTokenPair({ id: user._id });
+    const tokens = this.tokenService.generateTokenPair({ id: user._id });
 
     await this.userRepository.updateById(user._id, {
       refreshToken: tokens.refreshToken,
@@ -174,7 +174,7 @@ export class AuthService {
 
     // Cryptographically verify the token (catches expiry AND tampering)
     try {
-      JwtService.verifyRefreshToken(refreshToken);
+      this.tokenService.verifyRefreshToken(refreshToken);
     } catch {
       throw new ErrorResponse({
         status: 401,
@@ -182,7 +182,7 @@ export class AuthService {
       });
     }
 
-    const accessToken = JwtService.generateAccessToken({ id: user._id });
+    const accessToken = this.tokenService.generateAccessToken({ id: user._id });
 
     const populatedUser = await this.getPopulatedUser(user._id);
 
@@ -197,7 +197,7 @@ export class AuthService {
       },
       tokens: {
         accessToken,
-        refreshToken: user.refreshToken, // still valid — not rotated
+        refreshToken: user.refreshToken,
       },
     };
   }
@@ -207,8 +207,6 @@ export class AuthService {
       refreshToken: null,
     });
   }
-
-  // ─── Email verification ─────────────────────────────────────────────────────
 
   /**
    * Generate a fresh OTP, persist it, and email it to the user.

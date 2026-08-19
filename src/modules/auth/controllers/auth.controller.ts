@@ -11,17 +11,17 @@ import {
   verifyEmailSchema,
 } from "../dtos/request/VerifyEmail.dto";
 import { ValidateBody } from "@/common/middlewares/validate.schema";
-import { ErrorResponse } from "@/common/response/ErrorResponse";
 import {
   RefreshTokenDto,
   refreshTokenSchema,
 } from "../dtos/request/RefreshToken.dto";
+import { JwtService } from "@/common/utils/auth/jwt";
 
 export class AuthController {
   private authService: AuthService;
 
   constructor() {
-    this.authService = new AuthService();
+    this.authService = new AuthService(new JwtService());
   }
 
   @ValidateBody(registerUserSchema)
