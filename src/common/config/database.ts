@@ -6,8 +6,12 @@ import { Primary } from "../Primary";
 
 @Component
 @Primary
-class MongoDBImplementation implements Database {
+class MongoDBImplementation extends Database {
   private APP_MODE = env.APP_MODE;
+
+  constructor() {
+    super();
+  }
 
   private MONGO_URI: Record<APP_MODE_TYPE, string | undefined> = {
     dev: env.MONGO_DEV_URI,

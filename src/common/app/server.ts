@@ -1,23 +1,32 @@
 import { Server as HttpServer } from "http";
 import { Application as ExpressApp } from "express";
 import { Database } from "../database/database.interface";
+import { Component } from "../Component";
 
+@Component
 export class Server {
-  private readonly server: HttpServer;
-  private readonly app: ExpressApp;
-  private readonly database: Database;
+  private httpServer!: HttpServer;
+  private app!: ExpressApp;
 
-  constructor(app: ExpressApp, database: Database) {
+  /**
+   * Only Database is injected by the container.
+   * The Express app is passed separately via setApp() because Express
+   * applications are created manually, not by the IoC container.
+   */
+  constructor(private database: Database) {}
+
+  /** Wire the Express app — must be called before start(). */
+  setApp(app: ExpressApp): void {
     this.app = app;
-    this.server = new HttpServer(this.app);
-    this.database = database;
+    this.httpServer = new HttpServer(app);
   }
 
   public async start(port: number) {
     try {
-      await this.connectDependencies();
+      await this.database.connect();
+      console.log("✅ Database Connected Successfully");
 
-      this.server.listen(port, () => {
+      this.httpServer.listen(port, () => {
         console.log(`🚀 Server running on http://localhost:${port}`);
       });
 
@@ -30,21 +39,12 @@ export class Server {
 
   public async stop(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.server.close((err) => {
+      this.httpServer.close((err) => {
         if (err) return reject(err);
         console.log("🛑 Server stopped");
         resolve();
       });
     });
-  }
-
-  private async connectDependencies() {
-    await this.connectDatabase();
-  }
-
-  private async connectDatabase() {
-    await this.database.connect();
-    console.log("✅ Database Connected Successfully");
   }
 
   private registerShutdownHandlers() {

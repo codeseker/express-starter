@@ -1,10 +1,22 @@
+import { scanComponents } from "./common/container.scan";
+import Container from "./common/Container";
 import { Application } from "./common/app/application";
 import { Server } from "./common/app/server";
-import MongoDBImplementation from "./common/config/database";
 import { env } from "./common/config/env";
 
-const application = new Application();
+async function bootstrap() {
+  // 1. Auto-discover every @Component / @Primary class via file scan.
+  scanComponents();
 
-const server = new Server(application.getApp(), new MongoDBImplementation());
+  // 2. Create the Express app (middleware, routes, error handlers).
+  const application = new Application();
 
-server.start(env.PORT);
+  // 3. Let the Container create Server with Database injected.
+  const server = Container.get(Server);
+  server.setApp(application.getApp());
+
+  // 4. Connect DB, start listening.
+  server.start(env.PORT);
+}
+
+bootstrap();

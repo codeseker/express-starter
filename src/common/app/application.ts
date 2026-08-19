@@ -3,7 +3,9 @@ import cors from "cors";
 import { env } from "../config/env";
 import { globalErrorHandler } from "../utils/globalException.handler";
 import indexRoutes from "@/common/app/routes";
+import { Component } from "../Component";
 
+@Component
 export class Application {
   private app: ExpressApp;
 

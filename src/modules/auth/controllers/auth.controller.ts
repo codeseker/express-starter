@@ -1,4 +1,3 @@
-import "reflect-metadata";
 import { asyncHandler } from "@/common/utils/async.handler";
 import { AuthService } from "../services/auth.service";
 import {
