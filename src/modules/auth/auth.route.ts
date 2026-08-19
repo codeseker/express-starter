@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { AuthController } from "./controllers/auth.controller";
 import { authenticate, extractUser } from "@/common/middlewares/authenticate";
+import Container from "@/common/Container";
 
 const router = Router();
-const authController = new AuthController();
+const authController = Container.get(AuthController);
 
 router.post("/register", authController.register);
 router.post("/login", authController.login);

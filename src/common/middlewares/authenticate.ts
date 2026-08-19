@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { JwtService } from "@/common/utils/auth/jwt";
 import { ErrorResponse } from "@/common/response/ErrorResponse";
+import Container from "@/common/Container";
 
 /**
  * Verifies the Bearer access token and attaches `req.user` to the request.
@@ -8,6 +9,7 @@ import { ErrorResponse } from "@/common/response/ErrorResponse";
  * Usage:
  *   router.get("/profile", authenticate, handler)
  */
+const tokenService = Container.get(JwtService);
 export const authenticate = (
   req: Request,
   _res: Response,
@@ -27,7 +29,7 @@ export const authenticate = (
   const token = authHeader.slice(7); // strip "Bearer "
 
   try {
-    const payload = JwtService.verifyAccessToken(token);
+    const payload = tokenService.verifyAccessToken(token);
     req.user = { id: payload.id };
     next();
   } catch {
@@ -57,24 +59,20 @@ export const extractUser = (
   const authHeader = req.headers.authorization;
 
   if (!authHeader?.startsWith("Bearer ")) {
-    return next(
-      new ErrorResponse({
-        status: 401,
-        message: "Authentication required. No token provided.",
-      }),
-    );
+    throw new ErrorResponse({
+      status: 401,
+      message: "Authentication required. No token provided.",
+    });
   }
 
   const token = authHeader.slice(7);
-  const payload = JwtService.decode(token);
+  const payload = tokenService.decode(token);
 
   if (!payload?.id) {
-    return next(
-      new ErrorResponse({
-        status: 401,
-        message: "Malformed token.",
-      }),
-    );
+    throw new ErrorResponse({
+      status: 401,
+      message: "Malformed token.",
+    });
   }
 
   req.user = { id: payload.id };

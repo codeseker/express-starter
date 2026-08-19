@@ -13,10 +13,12 @@ import { Types } from "mongoose";
 import { MailerService } from "@/mailer/mailer.service";
 import { buildVerificationEmail } from "@/mailer/templates/verification.template";
 import { TokenService } from "@/common/utils/auth/TokenService";
+import { Component } from "@/common/Component";
 
 /** 6-digit numeric OTP validity window. */
 const OTP_TTL_MINUTES = 10;
 
+@Component
 export class AuthService {
   private userRepository: UserRepository;
   private roleRepository: RoleRepository;

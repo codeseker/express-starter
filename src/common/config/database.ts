@@ -1,7 +1,11 @@
 import { Database } from "@/common/database/database.interface";
 import { APP_MODE_TYPE, env } from "@/common/config/env";
 import mongoose from "mongoose";
+import { Component } from "../Component";
+import { Primary } from "../Primary";
 
+@Component
+@Primary
 class MongoDBImplementation implements Database {
   private APP_MODE = env.APP_MODE;
 

@@ -5,7 +5,11 @@ import jwt, {
   JsonWebTokenError,
 } from "jsonwebtoken";
 import { TokenPair, TokenPayload, TokenService } from "./TokenService";
+import { Component } from "@/common/Component";
+import { Primary } from "@/common/Primary";
 
+@Component
+@Primary
 export class JwtService extends TokenService {
   /**
    * Generate a JWT.

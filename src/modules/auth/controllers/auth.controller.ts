@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { asyncHandler } from "@/common/utils/async.handler";
 import { AuthService } from "../services/auth.service";
 import {
@@ -15,14 +16,11 @@ import {
   RefreshTokenDto,
   refreshTokenSchema,
 } from "../dtos/request/RefreshToken.dto";
-import { JwtService } from "@/common/utils/auth/jwt";
+import { Component } from "@/common/Component";
 
+@Component
 export class AuthController {
-  private authService: AuthService;
-
-  constructor() {
-    this.authService = new AuthService(new JwtService());
-  }
+  constructor(private authService: AuthService) {}
 
   @ValidateBody(registerUserSchema)
   register = asyncHandler<RegisterUserDto>(async (req) => {
