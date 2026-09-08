@@ -136,10 +136,6 @@ dist
 !.yarn/sdks
 !.yarn/versions
 
-# Vite files
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
-.vite/
 branch_structure.json
 temp_auto_push.bat
 temp_interactive_push.bat
